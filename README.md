@@ -1,18 +1,19 @@
 
-# Setup Amazon Bedrock agent, knowledge base, and action group with Streamlit
+# Configurar agente de Amazon Bedrock, base de conocimiento y grupo de acciones con Streamlit
 
-## Introduction
-This guide details the setup process for an Amazon Bedrock agent on AWS, which will include setting up S3 buckets, a knowledge base, an action group, and a Lambda function. We will use the Streamlit framework for the user interface. The agent is designed to dynamically create an investment company portfolio based on specific parameters, and has Q&A capability to FOMC(Federal Open Market Committee) reports. This exercise will also include a sending email method, but will not be fully configured.
+## Introducción
+Esta guía detalla el proceso de configuración de un agente de Amazon Bedrock en AWS, que incluirá la configuración de buckets de S3, una base de conocimiento, un grupo de acciones y una función Lambda. Usaremos el framework Streamlit para la interfaz de usuario. El agente está diseñado para crear dinámicamente un portafolio de una empresa de inversión basado en parámetros específicos y tiene capacidad de preguntas y respuestas sobre los informes del Comité Federal de Mercado Abierto (FOMC). Este ejercicio también incluirá un método para enviar correos electrónicos, pero no estará completamente configurado.
 
-## Prerequisites
-- An active AWS Account.
-- Familiarity with AWS services like Amazon Bedrock, S3, Lambda, and Cloud9.
+## Requisitos previos
+- Una cuenta activa de AWS.
+- Familiaridad con servicios de AWS como Amazon Bedrock, S3, Lambda y Cloud9.
 
-## Diagram
+## Diagrama
 
-![Diagram](images/diagram.png)
+![Diagrama](images/diagram.png)
 
-## Configuration and Setup
+## Configuración y Configuración Inicial
+
 # Configurar agente de Amazon Bedrock, base de conocimiento y grupo de acciones con Streamlit
 
 ## Introducción
