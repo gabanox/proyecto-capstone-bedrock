@@ -13,18 +13,32 @@ This guide details the setup process for an Amazon Bedrock agent on AWS, which w
 ![Diagram](images/diagram.png)
 
 ## Configuration and Setup
+# Configurar agente de Amazon Bedrock, base de conocimiento y grupo de acciones con Streamlit
 
-### Step 1: Creating S3 Buckets
-- Please make sure that you are in the **us-west-2** region. If another region is required, you will need to update the region variable `theRegion` in the `InvokeAgent.py` file code. 
-- **Domain Data Bucket**: Create an S3 bucket to store the domain data. For example, call the S3 bucket `knowledgebase-bedrock-agent-{alias}`. We will use the default settings. 
+## Introducción
+Esta guía detalla el proceso de configuración de un agente de Amazon Bedrock en AWS, que incluirá la configuración de buckets de S3, una base de conocimiento, un grupo de acciones y una función Lambda. Usaremos el framework Streamlit para la interfaz de usuario. El agente está diseñado para crear dinámicamente un portafolio de una empresa de inversiones basado en parámetros específicos, y tiene la capacidad de preguntas y respuestas sobre los informes del Comité Federal de Mercado Abierto (FOMC). Este ejercicio también incluirá un método para enviar correos electrónicos, pero no estará completamente configurado.
 
-![Bucket create 1](images/bucket_pic_1.png)
+## Requisitos previos
+- Una cuenta activa de AWS.
+- Familiaridad con servicios de AWS como Amazon Bedrock, S3, Lambda y Cloud9.
 
-![Bucket create 2](images/bucket_pic_2.png)
+## Diagrama
 
-- Next, we will download the domain data from [here](https://github.com/build-on-aws/bedrock-agents-streamlit/tree/main/S3docs). On your computer, open terminal or command prompt, and run the following `curl` commands to download the data:
-  
-* For **Mac**
+![Diagrama](images/diagram.png)
+
+## Configuración y Configuración Inicial
+
+### Paso 1: Crear Buckets de S3
+- Asegúrate de que estás en la región **us-west-2**. Si necesitas otra región, tendrás que actualizar la variable de región `theRegion` en el archivo de código `InvokeAgent.py`.
+- **Bucket de Datos del Dominio**: Crea un bucket S3 para almacenar los datos del dominio. Por ejemplo, llama al bucket S3 `knowledgebase-bedrock-agent-{alias}`. Usaremos la configuración predeterminada.
+
+![Creación de Bucket 1](images/bucket_pic_1.png)
+
+![Creación de Bucket 2](images/bucket_pic_2.png)
+
+- A continuación, descargaremos los datos del dominio desde [aquí](https://github.com/build-on-aws/bedrock-agents-streamlit/tree/main/S3docs). En tu computadora, abre la terminal o el símbolo del sistema y ejecuta los siguientes comandos `curl` para descargar los datos:
+
+* Para **Mac**
   ```linux
     curl https://raw.githubusercontent.com/build-on-aws/bedrock-agents-streamlit/main/S3docs/fomcminutes20230201.pdf --output ~/Documents/fomcminutes20230201.pdf
 
@@ -53,62 +67,56 @@ This guide details the setup process for an Amazon Bedrock agent on AWS, which w
     
     curl https://raw.githubusercontent.com/build-on-aws/bedrock-agents-streamlit/main/S3docs/fomcminutes20231101.pdf --output %USERPROFILE%\Documents\fomcminutes20231101.pdf
 ```
+- También tienes la opción de descargar los archivos .pdf desde [aquí](https://github.com/build-on-aws/bedrock-agents-streamlit/tree/main/S3docs). Estos archivos se descargarán en tu carpeta **Documents**. Sube estos archivos al bucket S3 `knowledgebase-bedrock-agent-{alias}`. Estos archivos son documentos del Comité Federal de Mercado Abierto que describen las decisiones de política monetaria tomadas en las reuniones de la Junta de la Reserva Federal. Los documentos incluyen discusiones sobre condiciones económicas, directrices de política para el Banco de la Reserva Federal de Nueva York en operaciones de mercado abierto y votos sobre la tasa de fondos federales. Se puede encontrar más información [aquí](https://www.federalreserve.gov/newsevents/pressreleases/monetary20231011a.htm). Una vez subidos, selecciona uno de los documentos para abrirlo y revisar su contenido.
 
-- Also, you have the option to download the .pdf files from [here](https://github.com/build-on-aws/bedrock-agents-streamlit/tree/main/S3docs). These files will download to your **Documents** folder. Upload these files to S3 bucket `knowledgebase-bedrock-agent-{alias}`. These files are the Federal Open Market Committee documents describing monetary policy decisions made at the Federal Reserved board meetings. The documents include discussions of economic conditions, policy directives to the Federal Reserve Bank of New York for open market operations, and votes on the federal funds rate. More information can be found [here](https://www.federalreserve.gov/newsevents/pressreleases/monetary20231011a.htm). Once uploaded, please select one of the documents to open and review the content.
+![Datos del dominio del bucket](images/bucket_domain_data.png)
 
-![bucket domain data](images/bucket_domain_data.png)
+### Paso 2: Configuración de la Base de Conocimiento en el Agente Bedrock
 
+- Antes de configurar la base de conocimiento, necesitaremos conceder acceso a los modelos que serán necesarios para nuestro agente Bedrock. Navega a la consola de Amazon Bedrock, luego en el lado izquierdo de la pantalla, desplázate hacia abajo y selecciona **Acceso a modelos**. A la derecha, selecciona el botón naranja **Administrar acceso a modelos**.
 
+![Acceso a Modelos](images/model_access.png)
 
-### Step 2: Knowledge Base Setup in Bedrock Agent
+- Marca la casilla para los modelos base **Amazon: Titan Embeddings G1 - Text** y **Anthropic: Claude 3 Haiku**. Esto te proporcionará acceso a los modelos requeridos. Luego, desplázate hacia la parte inferior derecha y selecciona **Solicitar acceso a modelos**.
 
-- Before we setup the knowledge base, we will need to grant access to the models that will be needed for our Bedrock agent. Navigate to the Amazon Bedrock console, then on the left of the screen, scroll down and select **Model access**. On the right, select the orange **Manage model access** button.
+- Después, verifica que el estado de acceso de los modelos esté en verde con **Acceso concedido**.
 
-![Model access](images/model_access.png)
+![Acceso concedido](images/access_granted.png)
 
-- Select the checkbox for the base model columns **Amazon: Titan Embeddings G1 - Text** and **Anthropic: Claude 3 Haiku**. This will provide you access to the required models. After, scroll down to the bottom right and select **Request model access**.
+- Ahora, crearemos una base de conocimiento seleccionando **Base de conocimiento** en la izquierda, y luego seleccionando el botón naranja **Crear base de conocimiento**.
 
+![Botón de Crear Base de Conocimiento](images/create_kb_btn.png)
 
-- After, verify that the Access status of the Models are green with **Access granted**.
-
-![Access granted](images/access_granted.png)
-
-
-- Now, we will create a knowledge base by selecting **Knowledge base** on the left, then selecting the orange button **Create knowledge base**.  
-
-![create_kb_btn](images/create_kb_btn.png)
-
-- You can use the default name, or enter in your own. Then, select **Next** at the bottom right of the screen.
+- Puedes usar el nombre predeterminado o ingresar uno propio. Luego, selecciona **Siguiente** en la parte inferior derecha de la pantalla.
 
 ![KB details](images/kb_details.gif)
 
+- Sincroniza el bucket S3 `knowledgebase-bedrock-agent-{alias}` con esta base de conocimiento.
 
-- Sync S3 bucket `knowledgebase-bedrock-agent-{alias}` to this knowledge base.
+![Configuración de la Base de Conocimiento](images/KB_setup.png)
 
-![KB setup](images/KB_setup.png)
+- Para el modelo de embeddings, elige **Titan Embeddings G1 - Text v1.2**. Deja las demás opciones como predeterminadas y desplázate hacia abajo para seleccionar **Siguiente**.
 
-- For the embedding model, choose **Titan Embeddings G1 - Text v1.2**. Leave the other options as default, and scroll down to select **Next**.
- 
-![Vector Store Config](/static/vector_store_config.gif)
+![Configuración del Almacén de Vectores](/static/vector_store_config.gif)
 
-- On the next screen, review your work, then select **Create knowledge base**
-(Creating the knowledge base may take a few minutes. Please wait for it to finish before going to the next step.)
+- En la siguiente pantalla, revisa tu trabajo y luego selecciona **Crear base de conocimiento**. 
+(Crear la base de conocimiento puede tomar unos minutos. Por favor, espera a que termine antes de continuar con el siguiente paso).
 
-![Review and Create KB](images/review_create_kb.png)
+![Revisar y Crear Base de Conocimiento](images/review_create_kb.png)
 
-- When the knowledge base is complete, you will see a green message at the top similar to the following:
+- Cuando la base de conocimiento esté completa, verás un mensaje en verde en la parte superior similar al siguiente:
 
-![kb complete](images/kb_complete.png)
+![Base de Conocimiento Completa](images/kb_complete.png)
 
-### Step 3: Lambda Function Configuration
-- Create a Lambda function (Python 3.12) for the Bedrock agent's action group. We will call this Lambda function `PortfolioCreator-actions`. 
+### Paso 3: Configuración de la Función Lambda
+- Crea una función Lambda (Python 3.12) para el grupo de acciones del agente Bedrock. Llamaremos a esta función Lambda `PortfolioCreator-actions`.
 
-![Create Function](images/create_function.png)
+![Crear Función](images/create_function.png)
 
-![Create Function2](images/create_function2.png)
+![Crear Función 2](images/create_function2.png)
 
-- Copy the python code provided below, or from the file [here](https://github.com/build-on-aws/bedrock-agents-streamlit/blob/main/ActionLambda.py) into your Lambda function. 
-
+- Copia el código Python proporcionado a continuación, o desde el archivo [aquí](https://github.com/build-on-aws/bedrock-agents-streamlit/blob/main/ActionLambda.py), en tu función Lambda.
+  
 ```python
 import json
 
@@ -221,37 +229,34 @@ def lambda_handler(event, context):
     return api_response
 
 ```
+- Luego, selecciona **Deploy** en la sección de pestañas de la consola de Lambda. Revisa el código proporcionado antes de continuar con el siguiente paso. Verás que estamos utilizando datos simulados para representar varias empresas en las industrias de tecnología e inmobiliaria, junto con funciones que llamaremos más adelante en este taller.
 
-- Then, select **Deploy** in the tab section of the Lambda console. Review the code provided before moving to the next step. You will see that we are using mock data to represent various companies in the technology and real estate insdustry, along with functions that we will call later in this workshop. 
+![Despliegue de Lambda](images/lambda_deploy.png)
 
-![Lambda deploy](images/lambda_deploy.png)
+- A continuación, aplica una política de recursos a Lambda para conceder acceso al agente Bedrock. Para hacer esto, cambia la pestaña superior de **código** a **configuración** y la pestaña lateral a **Permisos**. Luego, desplázate hasta la sección **Declaraciones de políticas basadas en recursos** y haz clic en el botón **Agregar permisos**.
 
-- Next, apply a resource policy to the Lambda to grant Bedrock agent access. To do this, we will switch the top tab from **code** to **configuration** and the side tab to **Permissions**. Then, scroll to the **Resource-based policy statements** section and click the **Add permissions** button.
+![Configuración de Permisos](images/permissions_config.png)
 
-![Permissions config](images/permissions_config.png)
+![Creación de Política de Recursos Lambda](images/lambda_resource_policy_create.png)
 
-![Lambda resource policy create](images/lambda_resource_policy_create.png)
+- Selecciona ***Servicio de AWS***, luego usa las siguientes configuraciones para configurar la política basada en recursos:
 
-
-- Select ***AWS service***, then use the following settings to configure the resource based policy:
-
-* ***Service*** - `Other`
-* ***Statement ID*** - `allow-bedrock-agent`
+* ***Servicio*** - `Otro`
+* ***ID de la Declaración*** - `allow-bedrock-agent`
 * ***Principal*** - `bedrock.amazonaws.com`
-* ***Source ARN*** - `arn:aws:bedrock:us-west-2:{account-id}:agent/*` - (Please note, AWS recommends least privilage so only an allowed agent can invoke this Lambda function. A * at the end of the ARN grants any agent in the account access to invoke this Lambda. Ideally, we would not use this in a production environment.)
-* ***Action*** - `lambda:InvokeFunction`
+* ***ARN de la Fuente*** - `arn:aws:bedrock:us-west-2:{account-id}:agent/*` - (Ten en cuenta que AWS recomienda el menor privilegio posible, por lo que solo un agente permitido puede invocar esta función Lambda. Un * al final del ARN otorga acceso a cualquier agente en la cuenta para invocar esta Lambda. Idealmente, no usaríamos esto en un entorno de producción).
+* ***Acción*** - `lambda:InvokeFunction`
 
-![Lambda resource policy](images/lambda_resource_policy.png)
+![Política de Recursos Lambda](images/lambda_resource_policy.png)
 
-- Once your configurations look similar to the above screenshot, select ***Save*** at the bottom.
+- Una vez que tus configuraciones se vean similares a la captura de pantalla anterior, selecciona ***Guardar*** en la parte inferior.
 
+### Paso 4: Configuración del Agente Bedrock y Grupo de Acciones
 
-### Step 4: Setup Bedrock Agent and Action Group 
+- Navega a la consola de Bedrock. Ve al menú de la izquierda y, bajo ***Orquestación***, selecciona ***Agentes***. Proporciona un nombre para el agente, como ***PortfolioCreator***, y luego crea el agente.
 
-- Navigate to the Bedrock console. Go to the toggle on the left, and under ***Orchestration*** select ***Agents***. Provide an agent name, like ***PortfolioCreator*** then create the agent.
-
-- The agent description is optional, and we will use the default new service role. For the model, select **Anthropic: Claude 3 Haiku**. Next, provide the following instruction for the agent:
-
+- La descripción del agente es opcional, y usaremos el nuevo rol de servicio predeterminado. Para el modelo, selecciona **Anthropic: Claude 3 Haiku**. A continuación, proporciona las siguientes instrucciones para el agente:
+  
 ```instruction
 Role: You are an investment analyst responsible for creating portfolios, researching companies, summarizing documents, and formatting emails.
 
@@ -274,17 +279,16 @@ Objective: Assist in investment analysis by generating company portfolios, provi
  
 ```
 
-- After, scroll to the top and **Save**
+- Luego, desplázate hacia la parte superior y **Guarda**.
 
-- The instructions for the Generative AI Investment Analyst Tool outlines a comprehensive framework designed to assist in investment analysis. This tool is tasked with creating tailored portfolios of companies based on specific industry criteria, conducting thorough research on these companies, and summarizing relevant financial documents. Additionally, the tool formats and sends professional emails containing the portfolios and document summaries. The process involves continuous adaptation to user feedback and maintaining a contextual understanding of ongoing requests to ensure accurate and efficient responses.
+- Las instrucciones para la herramienta de Analista de Inversiones con IA Generativa describen un marco integral diseñado para ayudar en el análisis de inversiones. Esta herramienta se encarga de crear portafolios personalizados de empresas basados en criterios específicos de la industria, realizar investigaciones exhaustivas sobre estas empresas y resumir documentos financieros relevantes. Además, la herramienta formatea y envía correos electrónicos profesionales que contienen los portafolios y resúmenes de documentos. El proceso implica una adaptación continua a los comentarios de los usuarios y el mantenimiento de una comprensión contextual de las solicitudes en curso para garantizar respuestas precisas y eficientes.
 
+- A continuación, agregaremos un grupo de acciones. Desplázate hacia abajo hasta `Grupos de acciones` y luego selecciona ***Agregar***.
 
-- Next, we will add an action group. Scroll down to `Action groups` then select ***Add***.
+- Llama al grupo de acciones `PortfolioCreator-actions`. Configuraremos el `Tipo de grupo de acciones` en ***Definir con esquemas API***. Las `Invocaciones del grupo de acciones` deben configurarse en ***seleccionar una función Lambda existente***. Para la función Lambda, selecciona `PortfolioCreator-actions`.
 
-- Call the action group `PortfolioCreator-actions`. We will set the `Action group type` to ***Define with API schemas***. `Action group invocations` should be set to ***select an existing Lambda function***. For the Lambda function, select `PortfolioCreator-actions`.
-
-- For the `Action group Schema`, we will choose ***Define via in-line schema editor***. Replace the default schema in the **In-line OpenAPI schema** editor with the schema provided below. You can also retrieve the schema from the repo [here](https://github.com/build-on-aws/bedrock-agent-txt2sql/blob/main/schema/athena-schema.json). After, select ***Add***.
-`(This API schema is needed so that the bedrock agent knows the format structure and parameters needed for the action group to interact with the Lambda function.)`
+- Para el `Esquema del grupo de acciones`, elegiremos ***Definir a través del editor de esquemas en línea***. Reemplaza el esquema predeterminado en el editor de **Esquema OpenAPI en línea** con el esquema proporcionado a continuación. También puedes recuperar el esquema del repositorio [aquí](https://github.com/build-on-aws/bedrock-agent-txt2sql/blob/main/schema/athena-schema.json). Después, selecciona ***Agregar***.
+`(Este esquema API es necesario para que el agente de Bedrock conozca la estructura del formato y los parámetros necesarios para que el grupo de acciones interactúe con la función Lambda.)`
 
 ```schema
 {
@@ -451,19 +455,17 @@ Objective: Assist in investment analysis by generating company portfolios, provi
   }
 }
 ```
+- Este esquema API define tres endpoints principales: `/companyResearch`, `/createPortfolio` y `/sendEmail`, detallando cómo interactuar con la API, los parámetros requeridos y las respuestas esperadas.
 
-- This API schema defines three primary endpoints, `/companyResearch`, `/createPortfolio`, and `/sendEmail` detailing how to interact with the API, the required parameters, and the expected responses.
+- Ahora, necesitamos proporcionar al agente de Bedrock un prompt que incluya ejemplos de una respuesta formateada para un portafolio de una empresa de inversión y un correo electrónico. Al crear un agente, se configura inicialmente con cuatro plantillas de prompts fundamentales para ***pre-procesamiento***, ***orquestación***, ***generación de respuestas de la base de conocimiento*** y ***post-procesamiento***. Estos prompts guían cómo interactúa el agente con el modelo base en las diversas etapas del proceso. Estas plantillas son cruciales para procesar las entradas del usuario, orquestar el flujo entre el modelo base, los grupos de acciones y las bases de conocimiento, así como para formatear las respuestas enviadas a los usuarios. Al personalizar estas plantillas e incorporar prompts avanzados o ejemplos de few-shot, puedes mejorar significativamente la precisión y el rendimiento del agente en el manejo de tareas específicas. Puedes encontrar más información sobre prompts avanzados para un agente [aquí](https://docs.aws.amazon.com/bedrock/latest/userguide/advanced-prompts.html). Además, existe la opción de usar una [función Lambda personalizada de parser](https://docs.aws.amazon.com/bedrock/latest/userguide/lambda-parser.html) para un formateo más detallado.
 
-- Now, we need to provide the Bedrock agent a prompt that are examples of a formatted response for an investment company portfolio, and email. In the creation of an agent, it's initially configured with four foundational prompt templates for ***pre-processing***, ***orchestration***, ***knowledge base response generation***, and ***post-processing***. These prompts guide how the agent interacts with the foundation model across various steps of the process. These templates are crucial for processing user inputs, orchestrating the flow between the foundation model, action groups, and knowledge bases, as well as formatting the responses sent to users. By customizing these templates and incorporating advanced prompts or few-shot examples, you can significantly improve the agent's precision and performance in handling specific tasks. More information on advanced prompting for an agent can be found [here](https://docs.aws.amazon.com/bedrock/latest/userguide/advanced-prompts.html). Additionally, there is an option to use a [custom parser Lambda function](https://docs.aws.amazon.com/bedrock/latest/userguide/lambda-parser.html) for more granular formatting.
+- A continuación, desplázate hacia abajo hasta **Prompts avanzados** y selecciona **Editar**.
 
-- Next, scroll down to **Advanced prompts** and select **Edit**. 
+![Botón de Prompts Avanzados](images/advance_prompt_btn.png)
 
-![advance_prompt_btn](images/advance_prompt_btn.png)
+- Selecciona la pestaña **Orquestación**. Activa el botón de radio **Anular plantillas de orquestación predeterminadas**. Asegúrate de que **Activar plantilla de orquestación** también esté habilitado.
 
-
-- Select the **Orchestration** tab. Toggle on the radio button  **Override orchestration template defaults**. Make sure  **Activate orchestration template** is enabled as well.
-
-- In the ***Prompt template editor***, scroll down to line 22-23, then copy/paste in the following portfolio example and email format:
+- En el ***Editor de plantillas de prompts***, desplázate hacia abajo hasta las líneas 22-23, luego copia/pega el siguiente ejemplo de portafolio y formato de correo electrónico:
   
 ```sql
 Here is an example of a company portfolio.  
@@ -500,56 +502,48 @@ FOMC Report:
   Participants recognized that Russia’s war against Ukraine was causing tremendous human and economic hardship and was contributing to elevated global uncertainty. Against this background, participants continued to be highly attentive to inflation risks.
 </email_format>
 ```
+- Los resultados deberían verse similares a lo siguiente:
 
-- The results should look similar to the following:
-  
-![advance_prompt_setup](images/advance_prompt_setup.gif)
+![Configuración de Prompts Avanzados](images/advance_prompt_setup.gif)
 
+- Desplázate hasta la parte inferior y selecciona el botón ***Guardar y salir***.
 
+- Ahora, verifica para confirmar que la ***Orquestación*** en la sección de ***Prompts avanzados*** ha sido anulada.
 
-- Scroll to the bottom and select the ***Save and exit*** button.
+![Orquestación Anulada en Prompts Avanzados](images/adv_prompt_overridden.png)
 
-- Now, check to confirm that the ***Orchestration*** in the ***Advance prompt*** section is Overridden.
+### Paso 5: Configurar la Base de Conocimiento con el Agente Bedrock
 
-![advance_prompt_overridden](images/adv_prompt_overridden.png)
-
-
-### Step 5: Setup Knowledge Base with Bedrock Agent
-
-- While on the Bedrock agent console, scroll down to ***Knowledge base*** and select Add. When integrating the KB with the agent, you will need to provide basic instructions on how to handle the knowledge base. For example, use the following:
+- Mientras estés en la consola del agente Bedrock, desplázate hacia abajo hasta ***Base de conocimiento*** y selecciona Agregar. Al integrar la base de conocimiento con el agente, deberás proporcionar instrucciones básicas sobre cómo manejar la base de conocimiento. Por ejemplo, usa lo siguiente:
   
   ```text
   Use this knowledge base when a user asks about data, such as economic trends, company financial statements, or the outcomes of the Federal Open Market Committee meetings.
   ```
   
- 
-![Knowledge base add2](images/add_knowledge_base2.png)
+ ![Agregar Base de Conocimiento](images/add_knowledge_base2.png)
 
-- Review your input, then select ***Add***.
+- Revisa tu entrada, luego selecciona ***Agregar***.
 
-- Scroll to the top and select ***Prepare*** so that the changes made are updated. Then select ***Save and exit***.
+- Desplázate hacia la parte superior y selecciona ***Preparar*** para que los cambios realizados se actualicen. Luego, selecciona ***Guardar y salir***.
 
+### Paso 6: Crear un alias
 
-### Step 6: Create an alias
+- Crea un alias (nueva versión) y elige un nombre a tu gusto. Una vez hecho esto, asegúrate de copiar tu **ID de Alias** y **ID de Agente**. Los necesitarás en el paso 8.
 
-- Create an alias (new version), and choose a name of your liking. After it's done, make sure to copy your **Alias ID** and **Agent ID**. You will need this in step 8.
- 
-![Create alias](images/create_alias.png)
+![Crear Alias](images/create_alias.png)
 
+## Paso 7: Prueba de la Configuración
+### Prueba de la Base de Conocimiento
+- Mientras estés en la consola de Bedrock, selecciona **Base de Conocimiento** bajo la pestaña de Orquestación, luego la base de conocimiento que creaste. Desplázate hacia abajo hasta la sección de Fuente de Datos y asegúrate de seleccionar el botón **Sincronizar**.
 
+![Sincronización de Base de Conocimiento](images/kb_sync.png)
 
-## Step 7: Testing the Setup
-### Testing the Knowledge Base
-- While in the Bedrock console, select **Knowledge base** under the Orchestration tab, then the KB you created. Scroll down to the Data source section, and make sure to select the **Sync** button.
+- Verás una interfaz de usuario a la derecha donde necesitarás seleccionar un modelo. Elige el **modelo Anthropic Claude 3 Haiku**, luego selecciona **Aplicar**.
 
-![KB sync](images/kb_sync.png)
+![Prueba de Selección de Modelo](images/select_model_test.png)
 
-- You will see a user interface on the right where you will need to select a model. Choose the **Anthropic Claude 3 Haiku model**, then select **Apply**.
-
-![Select model test](images/select_model_test.png)
-
-- You should now have the ability to enter prompts in the user interface provided.
-
+- Ahora deberías tener la capacidad de ingresar prompts en la interfaz de usuario proporcionada.
+  
 ![KB prompt](images/kb_prompt.png)
 
 - Test Prompts:
@@ -562,13 +556,12 @@ FOMC Report:
   ```text
   What can you tell me about the Staff Review of the Economic & Financial Situation?
   ```
+### Prueba del Agente Bedrock
+- Mientras estés en la consola de Bedrock, selecciona **Agentes** bajo la pestaña de Orquestación, luego el agente que creaste. Deberías poder ingresar prompts en la interfaz de usuario proporcionada para probar tu base de conocimiento y los grupos de acciones desde el agente.
 
-### Testing the Bedrock Agent
-- While in the Bedrock console, select **Agents** under the Orchestration tab, then the agent you created. You should be able to enter prompts in the user interface provided to test your knowledge base and action groups from the agent.
+![Prueba del Agente](images/agent_test.png)
 
-![Agent test](images/agent_test.png)
-
-- Example prompts for **Knowledge base**:
+- Ejemplos de prompts para la **Base de Conocimiento**:
   ```text
   Give me a summary of financial market developments and open market operations in January 2023
   ```
@@ -582,7 +575,8 @@ FOMC Report:
   Tell me about the Staff Review of the Economic & financial Situation
   ```
 
-- Example prompts for **Action groups**:
+- Ejemplos de prompts para los **Grupos de Acciones**:
+  
 ```text
   Create a portfolio with 3 companies in the real estate industry
 ```
@@ -596,112 +590,94 @@ FOMC Report:
   Do company research on TechStashNova Inc.
 ```
 
-- Example prompt for KB & AG
+- Ejemplo de prompt para la Base de Conocimiento (KB) y Grupos de Acciones (AG):
   ```text
   Send an email to test@example.com that includes the company portfolio and FOMC summary
   ```
   `(The logic for this method is not implemented to send emails)`  
 
+## Paso 8: Configuración y Ejecución de la Aplicación Streamlit en EC2 (Opcional)
+1. **Obtener la plantilla CF para lanzar la aplicación Streamlit**: Descarga la plantilla de CloudFormation desde [aquí](https://github.com/build-on-aws/bedrock-agents-streamlit/blob/main/ec2-streamlit-template.yaml). Esta plantilla se utilizará para desplegar una instancia de EC2 que tiene el código de Streamlit para ejecutar la interfaz de usuario. ***Ten en cuenta que el rango CIDR y la VPC utilizados en la plantilla de CloudFormation pueden necesitar ser modificados si la subred y la VPC definidas no son aplicables.***
 
-## Step 8: Setup and Run Streamlit App on EC2 (Optional)
-1. **Obtain CF template to launch the streamlit app**: Download the Cloudformation template from [here](https://github.com/build-on-aws/bedrock-agents-streamlit/blob/main/ec2-streamlit-template.yaml). This template will be used to deploy an EC2 instance that has the Streamlit code to run the UI. ***Please note, the CIDR range and VPC used in the CloudFormation template may need to be modified if the defined subnet and VPC are not applicable.***
+2. **Desplegar la plantilla a través de CloudFormation**:
+   - En tu consola de administración, busca y luego ve al servicio CloudFormation.
+   - Crea un stack con nuevos recursos (estándar).
 
+   ![Crear stack](images/create_stack.png)
 
-2. **Deploy template via Cloudformation**:
-   - In your mangement console, search, then go to the CloudFormation service.
-   - Create a stack with new resources (standard)
+   - Preparar plantilla: Elige una plantilla existente -> Especificar plantilla: Cargar un archivo de plantilla -> sube la plantilla descargada en el paso anterior.
 
-   ![Create stack](images/create_stack.png)
+  ![Configurar stack](images/create_stack_config.png)
 
-   - Prepare template: Choose existing template -> Specify template: Upload a template file -> upload the template donaloaded from the previous step. 
+   - A continuación, proporciona un nombre para el stack, como ***ec2-streamlit***. Mantén el tipo de instancia en el valor predeterminado de t3.small, luego haz clic en Siguiente.
 
-  ![Create stack config](images/create_stack_config.png)
+   ![Detalles del stack](images/stack_details.png)
 
-   - Next, Provide a stack name like ***ec2-streamlit***. Keep the instance type on the default of t3.small, then go to Next.
+   - En la pantalla de ***Configurar opciones del stack***, deja todas las configuraciones por defecto, luego haz clic en Siguiente.
 
-   ![Stack details](images/stack_details.png)
+   - Desplázate hacia abajo hasta la sección de capacidades y reconoce el mensaje de advertencia antes de enviar.
 
-   - On the ***Configure stack options*** screen, leave every setting as default, then go to Next. 
+   - Una vez que el stack esté completo, pasa al siguiente paso.
 
-   - Scroll down to the capabilities section, and acknowledge the warning message before submitting. 
+![Stack completo](images/stack_complete.png)
 
-   - Once the stack is complete, go to the next step.
+3. **Editar la aplicación para actualizar los ID del agente**:
+   - Navega a la consola de administración de instancias EC2. Bajo la sección de instancias, deberías ver `EC2-Streamlit-App`. Selecciona la casilla junto a ella y luego conéctate a través de `EC2 Instance Connect`.
 
-![Stack complete](images/stack_complete.png)
+   ![Conexión EC2](images/ec2_connect.gif)
 
-
-3. **Edit the app to update agent IDs**:
-   - Navigate to the EC2 instance management console. Under instances, you should see `EC2-Streamlit-App`. Select the checkbox next to it, then connect to it via `EC2 Instance Connect`.
-
-   ![ec2 connect clip](images/ec2_connect.gif)
-
-   - Next, use the following command  to edit the InvokeAgent.py file:
+   - A continuación, usa el siguiente comando para editar el archivo InvokeAgent.py:
      ```bash
      sudo vi app/streamlit_app/InvokeAgent.py
      ```
 
-   - Press ***i*** to go into edit mode. Then, update the ***AGENT ID*** and ***Agent ALIAS ID*** values. 
+   - Presiona ***i*** para entrar en modo de edición. Luego, actualiza los valores de ***AGENT ID*** y ***Agent ALIAS ID***.
+
+   ![Edición de archivo](images/file_edit.png)
    
-   ![file_edit](images/file_edit.png)
-   
-   - After, hit `Esc`, then save the file changes with the following command:
+   - Después, presiona `Esc`, luego guarda los cambios en el archivo con el siguiente comando:
      ```bash
      :wq!
      ```   
 
-   - Now, start the streamlit app:
+   - Ahora, inicia la aplicación streamlit:
      ```bash
      streamlit run app/streamlit_app/app.py
      ```
   
-   - You should see an external URL. Copy & paste the URL into a web browser to start the streamlit application.
+   - Deberías ver una URL externa. Copia y pega la URL en un navegador web para iniciar la aplicación streamlit.
 
-![External IP](images/external_ip.png)
+![IP Externa](images/external_ip.png)
 
+   - Una vez que la aplicación esté en funcionamiento, por favor prueba algunos de los prompts de ejemplo proporcionados. (En el primer intento, si recibes un error, inténtalo de nuevo).
 
-   - Once the app is running, please test some of the sample prompts provided. (On 1st try, if you receive an error, try again.)
+![Aplicación en Ejecución](images/running_app.png)
 
-![Running App ](images/running_app.png)
+   - Opcionalmente, puedes revisar los [eventos de rastreo](https://docs.aws.amazon.com/bedrock/latest/userguide/trace-events.html) en el menú de la izquierda de la pantalla. Estos datos incluirán los rastreos de **Preprocesamiento, Orquestación** y **Postprocesamiento**.
 
+![Eventos de Rastreo](images/trace_events.png)
 
-   - Optionally, you can review the [trace events](https://docs.aws.amazon.com/bedrock/latest/userguide/trace-events.html) in the left toggle of the screen. This data will include the **Preprocessing, Orchestration**, and **PostProcessing** traces.
+## Limpieza
 
-![Trace events ](images/trace_events.png)
+Después de completar la configuración y las pruebas del Agente Bedrock y la aplicación Streamlit, sigue estos pasos para limpiar tu entorno AWS y evitar cargos innecesarios:
+1. Eliminar Buckets S3:
+- Navega a la consola de S3.
+- Selecciona los buckets "knowledgebase-bedrock-agent-{alias}" y "artifacts-bedrock-agent-creator-{alias}". Asegúrate de que ambos buckets estén vacíos eliminando los archivos.
+- Elige 'Eliminar' y confirma ingresando el nombre del bucket.
 
+2. Eliminar la Función Lambda:
+- Ve a la consola de Lambda.
+- Selecciona la función "PortfolioCreator-actions".
+- Haz clic en 'Eliminar' y confirma la acción.
 
-## Cleanup
+3. Eliminar el Agente Bedrock:
+- En la consola de Bedrock, navega a 'Agentes'.
+- Selecciona el agente creado, luego elige 'Eliminar'.
 
-After completing the setup and testing of the Bedrock Agent and Streamlit app, follow these steps to clean up your AWS environment and avoid unnecessary charges:
-1. Delete S3 Buckets:
-- Navigate to the S3 console.
-- Select the buckets "knowledgebase-bedrock-agent-{alias}" and "artifacts-bedrock-agent-creator-{alias}". Make sure that both of these buckets are empty by deleting the files. 
-- Choose 'Delete' and confirm by entering the bucket name.
+4. Anular el Registro de la Base de Conocimiento en Bedrock:
+- Accede a la consola de Bedrock, luego navega a "Base de Conocimiento" bajo la pestaña de Orquestación.
+- Selecciona y luego elimina la base de conocimiento creada.
 
-2.	Remove Lambda Function:
-- Go to the Lambda console.
-- Select the "PortfolioCreator-actions" function.
-- Click 'Delete' and confirm the action.
-
-3.	Delete Bedrock Agent:
-- In the Bedrock console, navigate to 'Agents'.
-- Select the created agent, then choose 'Delete'.
-
-4.	Deregister Knowledge Base in Bedrock:
-- Access the Bedrock console, then navigate to “Knowledge base” under the Orchestration tab.
-- Select, then delete the created knowledge base.
-
-5.	Clean Up Cloud9 Environment:
-- Navigate to the Cloud9 management console.
-- Select the Cloud9 environment you created, then delete.
-
-
-
-
-## Security
-
-See [CONTRIBUTING](CONTRIBUTING.md#security-issue-notifications) for more information.
-
-## License
-
-This library is licensed under the MIT-0 License. See the LICENSE file.
-
+5. Limpiar el Entorno Cloud9:
+- Navega a la consola de administración de Cloud9.
+- Selecciona el entorno de Cloud9 que creaste, luego elimínalo.
